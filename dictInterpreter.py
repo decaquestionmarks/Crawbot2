@@ -1,4 +1,4 @@
-BREAKCHARS = ":,"
+BREAKCHARS = "]:,"
 SPECIALSTOP = "{[("
 
 def getToken(file)->str:
@@ -79,8 +79,16 @@ def buildlist(file, target: list) -> list:
     while token[-1]!="]":
         token = getToken(file)
         if token[-1]=="/":
+            # print(print("///"+token))
             while file.read(1)!='/':
+                # print("skipped", f.tell())
                 pass
+            t = determineType(token[:-1])
+            print("###"+token)
+            # print("###"+str(type(t)))
+            target.append(t(token[:-1].replace('"','').strip()))
+        elif token == "]":
+            break
         else:
             t = determineType(token[:-1])
             print("###"+token)
