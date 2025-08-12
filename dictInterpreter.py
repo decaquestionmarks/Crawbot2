@@ -41,6 +41,7 @@ def eatFunction(file)->None:
     curr = ''
     while curr!='}':
         curr = file.read(1)
+    curr = file.read(1)
     return
 
 def eatLine(file) -> None:
@@ -71,7 +72,49 @@ returns the input list
 
 """
 def builddict(file, target: dict) -> dict:
-    pass
+    token = " "
+    while not "}" in token:
+        #Key
+        token = getToken(f).strip()
+        # print(token)
+        if token.startswith("export"):
+            eatLine(f)
+            continue
+        if token[-1]=="(":
+            eatFunction(f)
+            continue
+        if "}" in token:
+            break
+        key = token[:-1]
+        #Value
+        token = getToken(f).strip()
+        # print(token)
+        if token=="[":
+            l = buildlist(f,[])
+            token = file.read(1)
+            target[key] = l
+            # print(key,l)
+            continue
+        if token=="{":
+            # print(f"Entering dictionary for {key}")
+            d = builddict(f,{})
+            token = file.read(1)
+            target[key] = d
+            # print(key,d)
+            continue
+        if token[-1]=="/":
+            # print(print("///"+token))
+            while file.read(1)!='/':
+                # print("skipped", f.tell())
+                pass
+        t = determineType(token[:-1])
+        # print(token)
+        # print("###"+str(type(t)))
+        target[key] = (t(token[:-1].replace('"','').replace('}','').strip()))
+        print(target)
+        print(key,token)
+        # input()
+    return target
     
 #Handle lists as a special case for simplicity
 def buildlist(file, target: list) -> list:
@@ -99,14 +142,8 @@ def buildlist(file, target: list) -> list:
 
 if __name__ == "__main__":
     target = input()
+    result = {}
     with open(target, "r+") as f:
-        t = getToken(f).strip()
-        if t.startswith("export"):
-            eatLine(f)
-            t = "{"
-        while t!="":
-            if t=="[":
-                t = buildlist(f,[])
-            print(t)
-            t = getToken(f).strip()
+        builddict(f,result)
     print("***************************DONE*****************************")
+    print(result)
