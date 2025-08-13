@@ -1,4 +1,4 @@
-BREAKCHARS = "]:,"
+BREAKCHARS = "]}:,"
 SPECIALSTOP = "{[("
 
 def getToken(file)->str:
@@ -39,8 +39,13 @@ def getToken(file)->str:
 
 def eatFunction(file)->None:
     curr = ''
-    while curr!='}':
+    bracecount = 1
+    while bracecount>0:
         curr = file.read(1)
+        if(curr=="}"):
+            bracecount-=1
+        if(curr=="{"):
+            bracecount+=1
     curr = file.read(1)
     return
 
@@ -73,33 +78,39 @@ returns the input list
 """
 def builddict(file, target: dict) -> dict:
     token = " "
-    while not "}" in token:
+    while len(token)>0 and not "}" in token:
         #Key
-        token = getToken(f).strip()
-        # print(token)
+        token = getToken(file).strip()
+        print(token)
         if token.startswith("export"):
-            eatLine(f)
+            eatLine(file)
             continue
         if token[-1]=="(":
-            eatFunction(f)
+            eatLine(file)
+            eatFunction(file)
             continue
         if "}" in token:
+            print("Breaking Out")
             break
         key = token[:-1]
         #Value
-        token = getToken(f).strip()
+        token = getToken(file).strip()
         # print(token)
         if token=="[":
-            l = buildlist(f,[])
+            l = buildlist(file,[])
             token = file.read(1)
             target[key] = l
+            # print(target)
+            # print(key,token)
             # print(key,l)
             continue
         if token=="{":
-            # print(f"Entering dictionary for {key}")
-            d = builddict(f,{})
+            print(f"Entering dictionary for {key}")
+            d = builddict(file,{})
             token = file.read(1)
             target[key] = d
+            # print(target)
+            # print(key,token)
             # print(key,d)
             continue
         if token[-1]=="/":
@@ -114,6 +125,10 @@ def builddict(file, target: dict) -> dict:
         print(target)
         print(key,token)
         # input()
+    if token.count("}")>1:
+        print(token)
+        print(file.tell(), token.count("}")-1)
+        file.seek(-1*(token.count("}")-1),1)
     return target
     
 #Handle lists as a special case for simplicity
@@ -139,6 +154,11 @@ def buildlist(file, target: list) -> list:
             target.append(t(token[:-1].replace('"','').strip()))
     return target
         
+def get(target: dict, keys: list[str]): ##can return any type
+    if len(keys)==1:
+        return target[keys[0]]
+    else:
+        return get(target[keys[0]],keys[1:])
 
 if __name__ == "__main__":
     target = input()
@@ -147,3 +167,7 @@ if __name__ == "__main__":
         builddict(f,result)
     print("***************************DONE*****************************")
     print(result)
+    while True:
+        args = input().split(" ")
+        print(args)
+        print(get(result,args))
