@@ -82,7 +82,7 @@ def builddict(file, target: dict) -> dict:
         #Key
         token = getToken(file).strip()
         print(token)
-        if token.startswith("export"):
+        if token.startswith("export") or token.startswith("import"):
             eatLine(file)
             continue
         if token[-1]=="(":
@@ -106,7 +106,10 @@ def builddict(file, target: dict) -> dict:
             continue
         if token=="{":
             print(f"Entering dictionary for {key}")
-            d = builddict(file,{})
+            innerdict = {}
+            if(key in target.keys()):
+                innerdict = target[key]
+            d = builddict(file,innerdict)
             token = file.read(1)
             target[key] = d
             # print(target)
@@ -147,6 +150,24 @@ def buildlist(file, target: list) -> list:
             target.append(t(token[:-1].replace('"','').strip()))
         elif token == "]":
             break
+        elif token.strip()=="[":
+            l = buildlist(file,[])
+            token = file.read(1)
+            target[key] = l
+            # print(target)
+            # print(key,token)
+            # print(key,l)
+            continue
+        elif token.strip()=="{":
+            print(f"making dictionary in list")
+            innerdict = {}
+            d = builddict(file,innerdict)
+            token = file.read(1)
+            target.append(d)
+            # print(target)
+            # print(key,token)
+            # print(key,d)
+            continue
         else:
             t = determineType(token[:-1])
             print("###"+token)
@@ -161,10 +182,34 @@ def get(target: dict, keys: list[str]): ##can return any type
         return get(target[keys[0]],keys[1:])
 
 if __name__ == "__main__":
-    target = input()
+    # target = input()
     result = {}
-    with open(target, "r+") as f:
-        builddict(f,result)
+    mode = input()
+    if mode == '1':
+        with open("C:/Users/natey/Crawbot/Dawn/data/pokedex.ts", "r+") as f:
+            builddict(f,result)
+        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/pokedex.ts", "r+") as f:
+            builddict(f,result)
+    if mode == '2':
+        with open("C:/Users/natey/Crawbot/Dawn/data/moves.ts", "r+") as f:
+            builddict(f,result)
+        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/moves.ts", "r+") as f:
+            builddict(f,result)
+        with open("C:/Users/natey/Crawbot/Dawn/data/text/moves.ts", "r+") as f:
+            builddict(f,result)
+    if mode == '3':
+        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/abilities.ts", "r+") as f:
+            builddict(f,result)
+        with open("C:/Users/natey/Crawbot/Dawn/data/text/abilities.ts", "r+") as f:
+            builddict(f,result)
+    if mode == '4':
+        with open("C:/Users/natey/Crawbot/Dawn/data/pokedex.ts", "r+") as f:
+            builddict(f,result)
+        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/pokedex.ts", "r+") as f:
+            builddict(f,result)
+        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/learnsets.ts", "r+") as f:
+            builddict(f,result)
+        
     print("***************************DONE*****************************")
     print(result)
     while True:
