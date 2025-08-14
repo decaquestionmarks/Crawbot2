@@ -81,7 +81,7 @@ def builddict(file, target: dict) -> dict:
     while len(token)>0 and not "}" in token:
         #Key
         token = getToken(file).strip()
-        print(token)
+        # print(token)
         if token.startswith("export") or token.startswith("import"):
             eatLine(file)
             continue
@@ -90,7 +90,7 @@ def builddict(file, target: dict) -> dict:
             eatFunction(file)
             continue
         if "}" in token:
-            print("Breaking Out")
+            # print("Breaking Out")
             break
         key = token[:-1]
         #Value
@@ -105,7 +105,7 @@ def builddict(file, target: dict) -> dict:
             # print(key,l)
             continue
         if token=="{":
-            print(f"Entering dictionary for {key}")
+            # print(f"Entering dictionary for {key}")
             innerdict = {}
             if(key in target.keys()):
                 innerdict = target[key]
@@ -125,13 +125,9 @@ def builddict(file, target: dict) -> dict:
         # print(token)
         # print("###"+str(type(t)))
         target[key] = (t(token[:-1].replace('"','').replace('}','').strip()))
-        print(target)
-        print(key,token)
+        # print(target)
+        # print(key,token)
         # input()
-    if token.count("}")>1:
-        print(token)
-        print(file.tell(), token.count("}")-1)
-        file.seek(-1*(token.count("}")-1),1)
     return target
     
 #Handle lists as a special case for simplicity
@@ -145,7 +141,7 @@ def buildlist(file, target: list) -> list:
                 # print("skipped", f.tell())
                 pass
             t = determineType(token[:-1])
-            print("###"+token)
+            # print("###"+token)
             # print("###"+str(type(t)))
             target.append(t(token[:-1].replace('"','').strip()))
         elif token == "]":
@@ -159,7 +155,7 @@ def buildlist(file, target: list) -> list:
             # print(key,l)
             continue
         elif token.strip()=="{":
-            print(f"making dictionary in list")
+            # print(f"making dictionary in list")
             innerdict = {}
             d = builddict(file,innerdict)
             token = file.read(1)
@@ -170,7 +166,7 @@ def buildlist(file, target: list) -> list:
             continue
         else:
             t = determineType(token[:-1])
-            print("###"+token)
+            # print("###"+token)
             # print("###"+str(type(t)))
             target.append(t(token[:-1].replace('"','').strip()))
     return target
@@ -208,6 +204,8 @@ if __name__ == "__main__":
         with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/pokedex.ts", "r+") as f:
             builddict(f,result)
         with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/learnsets.ts", "r+") as f:
+            builddict(f,result)
+        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/formats-data.ts", "r+") as f:
             builddict(f,result)
         
     print("***************************DONE*****************************")
