@@ -58,14 +58,16 @@ def determineType(s: str)->type:
         return str
     elif(s=="true" or s=="false"):
         return bool
-    elif(s.isnumeric()):
+    try:
+        int(s)
         return int
-    elif(s.isalnum()):
-        try:
-            float(s)
-            return float
-        except ValueError:
-            pass
+    except ValueError:
+        pass
+    try:
+        float(s)
+        return float
+    except ValueError:
+        pass
     return str
 
 """
@@ -149,7 +151,7 @@ def buildlist(file, target: list) -> list:
         elif token.strip()=="[":
             l = buildlist(file,[])
             token = file.read(1)
-            target[key] = l
+            target.append(l)
             # print(target)
             # print(key,token)
             # print(key,l)
