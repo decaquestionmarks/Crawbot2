@@ -180,34 +180,7 @@ def get(target: dict, keys: list[str]): ##can return any type
 if __name__ == "__main__":
     # target = input()
     result = {}
-    mode = input()
-    if mode == '1':
-        with open("C:/Users/natey/Crawbot/Dawn/data/pokedex.ts", "r+") as f:
-            builddict(f,result)
-        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/pokedex.ts", "r+") as f:
-            builddict(f,result)
-    if mode == '2':
-        with open("C:/Users/natey/Crawbot/Dawn/data/moves.ts", "r+") as f:
-            builddict(f,result)
-        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/moves.ts", "r+") as f:
-            builddict(f,result)
-        with open("C:/Users/natey/Crawbot/Dawn/data/text/moves.ts", "r+") as f:
-            builddict(f,result)
-    if mode == '3':
-        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/abilities.ts", "r+") as f:
-            builddict(f,result)
-        with open("C:/Users/natey/Crawbot/Dawn/data/text/abilities.ts", "r+") as f:
-            builddict(f,result)
-    if mode == '4':
-        with open("C:/Users/natey/Crawbot/Dawn/data/pokedex.ts", "r+") as f:
-            builddict(f,result)
-        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/pokedex.ts", "r+") as f:
-            builddict(f,result)
-        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/learnsets.ts", "r+") as f:
-            builddict(f,result)
-        with open("C:/Users/natey/Crawbot/Dawn/data/mods/gen9sanctified/formats-data.ts", "r+") as f:
-            builddict(f,result)
-        
+    #Hidden for file path reasons
     print("***************************DONE*****************************")
     print(result)
     while True:
