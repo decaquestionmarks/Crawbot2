@@ -108,6 +108,9 @@ def builddict(file, target: dict) -> dict:
             continue
         if token=="{":
             # print(f"Entering dictionary for {key}")
+            if key == "condition":
+                eatFunction(file)
+                continue
             innerdict = {}
             if(key in target.keys()):
                 innerdict = target[key]

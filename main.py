@@ -12,8 +12,10 @@ intents.members = True
 intents.messages = True
 intents.all()
 
+compre = os.getenv("COMPRE")
+
 # client = discord.Client(intents=intents)
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix=compre, intents=intents)
 
 token = os.getenv('DISCORD_TOKEN')
 
