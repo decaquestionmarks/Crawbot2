@@ -54,7 +54,29 @@ class PokeInfo(commands.Cog):
                 dellist.append(key)   
         for key in dellist:
             del self.abilities[key]    
+        dellist = []
+        for key in self.pokemon.keys():
+            if "num" not in self.pokemon[key]:
+                dellist.append(key)   
+        for key in dellist:
+            del self.pokemon[key]    
         #Populate lists
+        self.types = set()
+        for key in self.pokemon.keys():
+            for type in self.pokemon[key]["types"]:
+                self.types.add(type)
+        print("Types ",self.types)
+        self.categories = ["physical","special","status"]
+        self.stats = ["atk","def","hp","spa","spd","spe"]
+        self.flags = set()
+        for key in self.moves.keys():
+            try:
+                for flag in self.moves[key]["flags"]:
+                    self.flags.add(flag)
+            except:
+                print(key, self.moves[key])
+        print("Flags", self.flags)
+
         print("PokeInfo Cog has been set up")
 
     @commands.command(name='awake', help = "determine if PokeInfo populated its knowledge base.")
@@ -75,9 +97,10 @@ class PokeInfo(commands.Cog):
             if arg in self.pokemon.keys():
                 # print(self.pokemon[arg])
                 embed = discord.Embed(title = self.pokemon[arg]["name"])
-                embed.add_field(name = "Type", value = "/".join(self.pokemon[arg]["types"]), inline = False)
-                embed.add_field(name = "Abilities", value = str(self.pokemon[arg]["abilities"]), inline = False)
-                embed.add_field(name = "Stats", value = "/".join([str(value) for value in self.pokemon[arg]["baseStats"].values()]))
+                embed.add_field(name = "Type", value = "/".join(self.pokemon[arg]["types"]), inline = True)
+                embed.add_field(name = "Tier", value = self.pokemon[arg]["natDexTier"], inline = True)
+                embed.add_field(name = "Abilities", value = "\n".join([str(key) + ": " + str(self.pokemon[arg]["abilities"][key]) for key in self.pokemon[arg]["abilities"]]), inline = False)
+                embed.add_field(name = "Stats", value = "/".join([str(value) for value in self.pokemon[arg]["baseStats"].values()]), inline = True)
                 # print(list(self.pokemon[arg]["baseStats"].values()))
                 embed.add_field(name = "Total", value=sum(list(self.pokemon[arg]["baseStats"].values())), inline = True)
             elif arg in self.moves.keys():
