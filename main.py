@@ -22,7 +22,8 @@ token = os.getenv('DISCORD_TOKEN')
 async def setup_cogs(bot):
     cogs = ['cogs.PokeInfo']
     for cog in cogs:
-        await bot.load_extension(cog)
+        if not cog in bot.extensions:
+            await bot.load_extension(cog)
     return True
 
 @bot.event

@@ -4,6 +4,7 @@ from discord.ext import commands
 from dictInterpreter import builddict
 import random
 from dotenv import load_dotenv
+import copy
 
 class PokeInfo(commands.Cog):
     def __init__(self, bot):
@@ -17,7 +18,7 @@ class PokeInfo(commands.Cog):
         self.oldmons = {}
         with open(dawnbasedata + "pokedex.ts", "r+") as f:
             builddict(f,self.oldmons)
-        self.pokemon = self.oldmons.copy()
+        self.pokemon = copy.deepcopy(self.oldmons)
         with open(dawnbasedata + "learnsets.ts", "r+") as f:
             builddict(f,self.oldmons)
         with open(dawndata+"pokedex.ts", "r+") as f:
@@ -66,8 +67,8 @@ class PokeInfo(commands.Cog):
             for type in self.pokemon[key]["types"]:
                 self.types.add(type)
         print("Types ",self.types)
-        self.categories = ["physical","special","status"]
-        self.stats = ["atk","def","hp","spa","spd","spe"]
+        self.categories = {"physical","special","status"}
+        self.stats = {"atk","def","hp","spa","spd","spe"}
         self.flags = set()
         for key in self.moves.keys():
             try:
@@ -76,6 +77,16 @@ class PokeInfo(commands.Cog):
             except:
                 print(key, self.moves[key])
         print("Flags", self.flags)
+        self.colors = set()
+        for key in self.pokemon.keys():
+                self.colors.add(self.pokemon[key]["color"])
+        print("Colors", self.colors)
+        self.eggGroups = set()
+        for key in self.pokemon.keys():
+            for type in self.pokemon[key]["eggGroups"]:
+                self.eggGroups.add(type)
+        print("eggGroups", self.eggGroups)
+        self.evotypes = {"lc", "nfe", "fe"}
 
         print("PokeInfo Cog has been set up")
 
@@ -87,7 +98,13 @@ class PokeInfo(commands.Cog):
     def name_convert(self, arg:str)->str:
         return arg.replace("-", "").replace(" ", "").lower()
 
-    @commands.command(name='dt', help='Shows info about a Pokemon')
+    def learnrec(self, mon: str, move: str, data: dict)->bool:
+        if "prevo" not in data[mon].keys() or self.name_convert(data[mon]["prevo"]) not in data[mon]["learnset"].keys():
+            return move in data[mon]["learnset"]
+        else:
+            return move in data[mon]["learnset"] or self.learnrec(self.name_convert(data[mon]["prevo"]),move,data)
+
+    @commands.command(name='dt', help='Shows info about a Pokemon, Move, or Ability')
     async def data(self, ctx, *args):
         try:
             arg = " ".join(args)
@@ -130,6 +147,58 @@ class PokeInfo(commands.Cog):
                 await ctx.channel.send(embed = embed)
         except Exception as e:
             await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+
+    @commands.command(name='changes', help='Shows a Pokemon\'s changes from the base game')
+    async def changes(self, ctx, *args):
+        # try:
+            arg = " ".join(args)
+            arg = self.name_convert(arg)
+            print(f"{ctx.author} Requesting changes on {arg}")
+            embed = discord.Embed()
+            if arg in self.oldmons.keys():
+                # print(self.pokemon[arg])
+                embed = discord.Embed(title = self.pokemon[arg]["name"])
+                # print(self.oldmons[arg]["types"], self.pokemon[arg]["types"])
+                if(self.oldmons[arg]["types"]!=self.pokemon[arg]["types"]):
+                    embed.add_field(name = "Type", value = "/".join(self.oldmons[arg]["types"]) + "->" + "/".join(self.pokemon[arg]["types"]), inline = False)
+                if(self.oldmons[arg]["abilities"]!=self.pokemon[arg]["abilities"]):
+                    abilitychanges = []
+                    for key in self.pokemon[arg]["abilities"]:
+                        if key not in self.oldmons[arg]["abilities"]:
+                            abilitychanges.append(f"New Ability {key}: {self.pokemon[arg]["abilities"][key]}")
+                        elif self.oldmons[arg]["abilities"][key]!=self.pokemon[arg]["abilities"][key]:
+                            abilitychanges.append(f"{key}: {self.oldmons[arg]["abilities"][key]} -> {self.pokemon[arg]["abilities"][key]}")
+                    embed.add_field(name = "Abilities", value = "\n".join(abilitychanges), inline=False)
+                if(self.oldmons[arg]["baseStats"]!=self.pokemon[arg]["baseStats"]):
+                    statchanges = []
+                    for key in self.pokemon[arg]["baseStats"]:
+                        if self.oldmons[arg]["baseStats"][key]!=self.pokemon[arg]["baseStats"][key]:
+                            statchanges.append(f"{key}: {self.oldmons[arg]["baseStats"][key]} -> {self.pokemon[arg]["baseStats"][key]}")
+                    embed.add_field(name = "Stats", value = "\n".join(statchanges), inline=False)
+                gained = []
+                for key in self.pokemon[arg]["learnset"]:
+                    if not self.learnrec(arg, key, self.oldmons):
+                        gained.append(self.moves[key]["name"])
+                lost = []
+                for key in self.oldmons[arg]["learnset"]:
+                    if not self.learnrec(arg, key, self.pokemon):
+                        lost.append(self.moves[key]["name"])
+                if gained or lost:
+                    v = ""
+                    if gained:
+                        v += f"Gained: {", ".join(gained)}"
+                    if lost:
+                        v+= f"\nLost: {", ".join(lost)}"
+                    embed.add_field(name = "Moves", value = v, inline=False)
+            else:
+                await ctx.channel.send("That Pokemon could not be found or is a new pokemon")
+            if embed.title is not None:
+                if(len(embed.fields)==0):
+                    embed.description = "No changes found"
+                await ctx.channel.send(embed = embed)
+        # except Exception as e:
+        #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+
 
 async def setup(bot):
     await bot.add_cog(PokeInfo(bot))
