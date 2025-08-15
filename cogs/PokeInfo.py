@@ -42,6 +42,9 @@ class PokeInfo(commands.Cog):
             builddict(f,self.abilities)
         with open(dawnbasedata+"text/abilities.ts", "r+") as f:
             builddict(f,self.abilities)
+        self.typechart = {}
+        with open(dawndata + "typechart.ts", "r+") as f:
+            builddict(f,self.typechart)
         #clean dictionary memory
         dellist = []
         for key in self.moves.keys():
@@ -60,12 +63,23 @@ class PokeInfo(commands.Cog):
             if "num" not in self.pokemon[key]:
                 dellist.append(key)   
         for key in dellist:
-            del self.pokemon[key]    
+            del self.pokemon[key]
+        #Typechart specific cleaning
+        convtable = [1.0, 2.0, 0.5, 0]
+        del self.typechart["spiral"]
+        del self.typechart["void"]
+        for key in self.typechart:
+            del self.typechart[key]["damageTaken"]["Spiral"]
+            del self.typechart[key]["damageTaken"]["Void"]
+            for type in self.typechart[key]["damageTaken"]:
+                self.typechart[key]["damageTaken"][type] = convtable[self.typechart[key]["damageTaken"][type]]
+        # print(self.typechart) 
         #Populate lists
         self.types = set()
         for key in self.pokemon.keys():
             for type in self.pokemon[key]["types"]:
                 self.types.add(type)
+        self.types.remove("Bird")
         print("Types ",self.types)
         self.categories = {"physical","special","status"}
         self.stats = {"atk","def","hp","spa","spd","spe"}
@@ -87,7 +101,7 @@ class PokeInfo(commands.Cog):
                 self.eggGroups.add(type)
         print("eggGroups", self.eggGroups)
         self.evotypes = {"lc", "nfe", "fe"}
-
+        
         print("PokeInfo Cog has been set up")
 
     @commands.command(name='awake', help = "determine if PokeInfo populated its knowledge base.")
@@ -115,7 +129,8 @@ class PokeInfo(commands.Cog):
                 # print(self.pokemon[arg])
                 embed = discord.Embed(title = self.pokemon[arg]["name"])
                 embed.add_field(name = "Type", value = "/".join(self.pokemon[arg]["types"]), inline = True)
-                embed.add_field(name = "Tier", value = self.pokemon[arg]["natDexTier"], inline = True)
+                if "natDexTier" in self.pokemon[arg].keys():
+                    embed.add_field(name = "Tier", value = self.pokemon[arg]["natDexTier"], inline = True)
                 embed.add_field(name = "Abilities", value = "\n".join([str(key) + ": " + str(self.pokemon[arg]["abilities"][key]) for key in self.pokemon[arg]["abilities"]]), inline = False)
                 embed.add_field(name = "Stats", value = "/".join([str(value) for value in self.pokemon[arg]["baseStats"].values()]), inline = True)
                 # print(list(self.pokemon[arg]["baseStats"].values()))
@@ -175,22 +190,24 @@ class PokeInfo(commands.Cog):
                         if self.oldmons[arg]["baseStats"][key]!=self.pokemon[arg]["baseStats"][key]:
                             statchanges.append(f"{key}: {self.oldmons[arg]["baseStats"][key]} -> {self.pokemon[arg]["baseStats"][key]}")
                     embed.add_field(name = "Stats", value = "\n".join(statchanges), inline=False)
-                if "learnset" in self.pokemon[arg].keys():
-                    gained = []
-                    for key in self.pokemon[arg]["learnset"]:
-                        if not self.learnrec(arg, key, self.oldmons):
-                            gained.append(self.moves[key]["name"])
-                    lost = []
-                    for key in self.oldmons[arg]["learnset"]:
-                        if not self.learnrec(arg, key, self.pokemon):
-                            lost.append(self.moves[key]["name"])
-                    if gained or lost:
-                        v = ""
-                        if gained:
-                            v += f"Gained: {", ".join(gained)}"
-                        if lost:
-                            v+= f"\nLost: {", ".join(lost)}"
-                        embed.add_field(name = "Moves", value = v, inline=False)
+                formarg = arg
+                if "learnset" not in self.pokemon[arg].keys():
+                    formarg = self.name_convert(self.pokemon[arg]["baseSpecies"])
+                gained = []
+                for key in self.pokemon[formarg]["learnset"]:
+                    if not self.learnrec(formarg, key, self.oldmons):
+                        gained.append(self.moves[key]["name"])
+                lost = []
+                for key in self.oldmons[formarg]["learnset"]:
+                    if not self.learnrec(formarg, key, self.pokemon):
+                        lost.append(self.moves[key]["name"])
+                if gained or lost:
+                    v = ""
+                    if gained:
+                        v += f"Gained: {", ".join(gained)}"
+                    if lost:
+                        v+= f"\nLost: {", ".join(lost)}"
+                    embed.add_field(name = "Moves", value = v, inline=False)
             else:
                 await ctx.channel.send("That Pokemon could not be found or is a new pokemon")
             if embed.title is not None:
@@ -200,6 +217,61 @@ class PokeInfo(commands.Cog):
         # except Exception as e:
         #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
 
+    @commands.command(name = 'learn', help = 'Tells if a pokemon can learn a move')
+    async def learn(self, ctx, *args):
+        try:
+            args = " ".join(args)
+            args = args.split(",")
+            mon = self.name_convert(args[0])
+            move = self.name_convert(args[1])
+            if mon in self.pokemon.keys() and "learnset" in self.pokemon[mon].keys():
+                if move in self.moves.keys():
+                    if self.learnrec(mon, move, self.pokemon):
+                        await ctx.channel.send(f"{self.moves[move]["name"]} is learnable by {self.pokemon[mon]["name"]}")
+                    else:
+                        await ctx.channel.send(
+                            f"{self.moves[move]["name"]} is not learnable by {self.pokemon[mon]["name"]}")
+                else:
+                    await ctx.channel.send(f"Move {move} cannot be found in the database")
+            else:
+                await ctx.channel.send(f"Pokemon {mon} cannot be found in the database")
+        except Exception as e:
+            await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+
+    @commands.command(name = 'weak', help = 'Shows a pokemon\'s or type\'s weaknesses')
+    async def weakness(self, ctx, *args):
+        # try:
+            args = (" ".join(args)).split(",")
+            if len(args) == 1:
+                if self.name_convert(args[0]) in self.pokemon.keys():
+                    args = [type for type in self.pokemon[self.name_convert(args[0])]["types"] if type in self.types]
+            print(f"Requesting Weaknesses for {args}")
+            matchup = {}
+            for arg in args:
+                arg = self.name_convert(arg)
+                if arg not in self.typechart.keys():
+                    await ctx.channel.send(f"Type {arg} could not be found in the database")
+                    return 
+                for type in self.typechart[arg]["damageTaken"]:
+                    if type in matchup.keys():
+                        matchup[type] *= self.typechart[arg]["damageTaken"][type]
+                    else:
+                        matchup[type] = self.typechart[arg]["damageTaken"][type]
+            weak = [f"**{key}**" for key in matchup.keys() if matchup[key]>=4]
+            weak.extend([key for key in matchup.keys() if matchup[key]==2])
+            neutral = [key for key in matchup.keys() if matchup[key]==1]
+            resist = [key for key in matchup.keys() if matchup[key]==0.5]
+            resist.extend([f"**{key}**" for key in matchup.keys() if 0<matchup[key]<0.5])
+            immune = [key for key in matchup.keys() if matchup[key]==0]
+            embed = discord.Embed(title = ", ".join(args))
+            embed.add_field(name = "Weak: ", value = ", ".join(weak), inline = False)
+            embed.add_field(name = "Neutral: ", value = ", ".join(neutral), inline = False)
+            embed.add_field(name = "Resists: ", value = ", ".join(resist), inline = False)
+            if len(immune)!=0:
+                embed.add_field(name = "Immune: ", value = ", ".join(immune), inline = False)
+            await ctx.channel.send(embed=embed)
+        # except Exception as e:
+        #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
 
 async def setup(bot):
     await bot.add_cog(PokeInfo(bot))
