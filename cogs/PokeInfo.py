@@ -175,21 +175,22 @@ class PokeInfo(commands.Cog):
                         if self.oldmons[arg]["baseStats"][key]!=self.pokemon[arg]["baseStats"][key]:
                             statchanges.append(f"{key}: {self.oldmons[arg]["baseStats"][key]} -> {self.pokemon[arg]["baseStats"][key]}")
                     embed.add_field(name = "Stats", value = "\n".join(statchanges), inline=False)
-                gained = []
-                for key in self.pokemon[arg]["learnset"]:
-                    if not self.learnrec(arg, key, self.oldmons):
-                        gained.append(self.moves[key]["name"])
-                lost = []
-                for key in self.oldmons[arg]["learnset"]:
-                    if not self.learnrec(arg, key, self.pokemon):
-                        lost.append(self.moves[key]["name"])
-                if gained or lost:
-                    v = ""
-                    if gained:
-                        v += f"Gained: {", ".join(gained)}"
-                    if lost:
-                        v+= f"\nLost: {", ".join(lost)}"
-                    embed.add_field(name = "Moves", value = v, inline=False)
+                if "learnset" in self.pokemon[arg].keys():
+                    gained = []
+                    for key in self.pokemon[arg]["learnset"]:
+                        if not self.learnrec(arg, key, self.oldmons):
+                            gained.append(self.moves[key]["name"])
+                    lost = []
+                    for key in self.oldmons[arg]["learnset"]:
+                        if not self.learnrec(arg, key, self.pokemon):
+                            lost.append(self.moves[key]["name"])
+                    if gained or lost:
+                        v = ""
+                        if gained:
+                            v += f"Gained: {", ".join(gained)}"
+                        if lost:
+                            v+= f"\nLost: {", ".join(lost)}"
+                        embed.add_field(name = "Moves", value = v, inline=False)
             else:
                 await ctx.channel.send("That Pokemon could not be found or is a new pokemon")
             if embed.title is not None:
