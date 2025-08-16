@@ -273,6 +273,19 @@ class PokeInfo(commands.Cog):
         # except Exception as e:
         #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
 
+    @commands.command(name='sprite', help='Shows a sprite')
+    async def sprite(self, ctx, arg):
+        arg = self.name_convert(arg)
+        try:
+            if arg in self.pokemon.keys() and arg not in self.oldmons.keys():
+                await ctx.channel.send(f"https://raw.githubusercontent.com/Dawn-Pokemon-Showdown/Sprites/master/sprites/gen5/{self.pokemon[arg]["name"].lower()}.png")
+            elif arg in self.oldmons.keys():
+                await ctx.channel.send(f"https://play.pokemonshowdown.com/sprites/gen5/{self.pokemon[arg]["name"].lower()}.png")
+            else:
+                await ctx.channel.send("I cannot find the sprite of the pokemon")
+        except Exception as e:
+            await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+
 async def setup(bot):
     await bot.add_cog(PokeInfo(bot))
 
