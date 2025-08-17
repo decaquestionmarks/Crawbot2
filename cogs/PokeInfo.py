@@ -115,9 +115,11 @@ class PokeInfo(commands.Cog):
         return arg.replace("-", "").replace(" ", "").lower()
 
     def learnrec(self, mon: str, move: str, data: dict)->bool:
-        if "prevo" not in data[mon].keys() or self.name_convert(data[mon]["prevo"]) not in data[mon]["learnset"].keys():
+        if "prevo" not in data[mon].keys() or self.name_convert(data[mon]["prevo"]) not in data.keys():
+            # print("checking only", mon)
             return move in data[mon]["learnset"]
         else:
+            # print("checking", data[mon]["prevo"])
             return move in data[mon]["learnset"] or self.learnrec(self.name_convert(data[mon]["prevo"]),move,data)
 
     @commands.command(name='dt', help='Shows info about a Pokemon, Move, or Ability')
@@ -167,7 +169,7 @@ class PokeInfo(commands.Cog):
 
     @commands.command(name='changes', help='Shows a Pokemon\'s changes from the base game')
     async def changes(self, ctx, *args):
-        # try:
+        try:
             arg = " ".join(args)
             arg = self.name_convert(arg)
             print(f"{ctx.author} Requesting changes on {arg}")
@@ -216,8 +218,8 @@ class PokeInfo(commands.Cog):
                 if(len(embed.fields)==0):
                     embed.description = "No changes found"
                 await ctx.channel.send(embed = embed)
-        # except Exception as e:
-        #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+        except Exception as e:
+            await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
 
     @commands.command(name = 'learn', help = 'Tells if a pokemon can learn a move')
     async def learn(self, ctx, *args):
@@ -226,6 +228,7 @@ class PokeInfo(commands.Cog):
             args = args.split(",")
             mon = self.name_convert(args[0])
             move = self.name_convert(args[1])
+            print(f"{ctx.author} Requesting whether {mon} can learn {move}")
             if mon in self.pokemon.keys() and "learnset" in self.pokemon[mon].keys():
                 if move in self.moves.keys():
                     if self.learnrec(mon, move, self.pokemon):
@@ -277,6 +280,7 @@ class PokeInfo(commands.Cog):
 
     @commands.command(name='sprite', help='Shows a sprite')
     async def sprite(self, ctx, arg):
+        print(f"{ctx.author} Requesting Sprite for {args}")
         arg = self.name_convert(arg)
         try:
             if arg in self.pokemon.keys() and arg not in self.oldmons.keys():
@@ -291,43 +295,45 @@ class PokeInfo(commands.Cog):
     @commands.command(name = 'coverage', help = 'Shows the coverage for inputted types')
     async def coverage(self, ctx, *args):
         args = (" ".join(args)).split(",")
-        print(f"Requesting coverage for {args}")
-        supereff = set()
-        neutral = set()
-        resisted = set()
-        immune = set()
-        for arg in args:
-            arg = self.name_convert(arg)
-            if arg not in self.typemap.keys():
-                await ctx.channel.send(f"Type {arg} could not be found in the database")
-                return 
-            arg = self.typemap[arg]
-            for type in self.types:
-                if self.typechart[self.name_convert(type)]["damageTaken"][arg]==2:
-                    supereff.add(type)
-                    neutral.discard(type)
-                    resisted.discard(type)
-                    immune.discard(type)
-                elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==1 and type not in supereff:
-                    neutral.add(type)
-                    resisted.discard(type)
-                    immune.discard(type)
-                elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==0.5 and type not in supereff and type not in neutral:
-                    resisted.add(type)
-                    immune.discard(type)
-                elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==0.5 and type not in supereff and type not in neutral and type not in resisted:
-                    immune.add(type)
-        embed = discord.Embed(title = ", ".join(args))
-        if len(supereff)!=0:
-            embed.add_field(name = "Super Effective: ", value = ", ".join(supereff), inline = False)
-        if len(neutral)!=0:
-            embed.add_field(name = "Neutral: ", value = ", ".join(neutral), inline = False)
-        if len(resisted)!=0:
-            embed.add_field(name = "Not Very Effective: ", value = ", ".join(resisted), inline = False)
-        if len(immune)!=0:
-            embed.add_field(name = "Immune: ", value = ", ".join(immune), inline = False)
-        await ctx.channel.send(embed=embed)
-                
+        print(f"{ctx.author} Requesting coverage for {args}")
+        try:
+            supereff = set()
+            neutral = set()
+            resisted = set()
+            immune = set()
+            for arg in args:
+                arg = self.name_convert(arg)
+                if arg not in self.typemap.keys():
+                    await ctx.channel.send(f"Type {arg} could not be found in the database")
+                    return 
+                arg = self.typemap[arg]
+                for type in self.types:
+                    if self.typechart[self.name_convert(type)]["damageTaken"][arg]==2:
+                        supereff.add(type)
+                        neutral.discard(type)
+                        resisted.discard(type)
+                        immune.discard(type)
+                    elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==1 and type not in supereff:
+                        neutral.add(type)
+                        resisted.discard(type)
+                        immune.discard(type)
+                    elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==0.5 and type not in supereff and type not in neutral:
+                        resisted.add(type)
+                        immune.discard(type)
+                    elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==0.5 and type not in supereff and type not in neutral and type not in resisted:
+                        immune.add(type)
+            embed = discord.Embed(title = ", ".join(args))
+            if len(supereff)!=0:
+                embed.add_field(name = "Super Effective: ", value = ", ".join(supereff), inline = False)
+            if len(neutral)!=0:
+                embed.add_field(name = "Neutral: ", value = ", ".join(neutral), inline = False)
+            if len(resisted)!=0:
+                embed.add_field(name = "Not Very Effective: ", value = ", ".join(resisted), inline = False)
+            if len(immune)!=0:
+                embed.add_field(name = "Immune: ", value = ", ".join(immune), inline = False)
+            await ctx.channel.send(embed=embed)
+        except Exception as e:
+            await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")  
 
 async def setup(bot):
     await bot.add_cog(PokeInfo(bot))
