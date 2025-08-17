@@ -101,7 +101,9 @@ class PokeInfo(commands.Cog):
                 self.eggGroups.add(type)
         print("eggGroups", self.eggGroups)
         self.evotypes = {"lc", "nfe", "fe"}
-        
+        self.typemap = {}
+        for type in self.types:
+            self.typemap[type.lower()] = type
         print("PokeInfo Cog has been set up")
 
     @commands.command(name='awake', help = "determine if PokeInfo populated its knowledge base.")
@@ -240,7 +242,7 @@ class PokeInfo(commands.Cog):
 
     @commands.command(name = 'weak', help = 'Shows a pokemon\'s or type\'s weaknesses')
     async def weakness(self, ctx, *args):
-        # try:
+        try:
             args = (" ".join(args)).split(",")
             if len(args) == 1:
                 if self.name_convert(args[0]) in self.pokemon.keys():
@@ -270,8 +272,8 @@ class PokeInfo(commands.Cog):
             if len(immune)!=0:
                 embed.add_field(name = "Immune: ", value = ", ".join(immune), inline = False)
             await ctx.channel.send(embed=embed)
-        # except Exception as e:
-        #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+        except Exception as e:
+            await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
 
     @commands.command(name='sprite', help='Shows a sprite')
     async def sprite(self, ctx, arg):
@@ -285,6 +287,47 @@ class PokeInfo(commands.Cog):
                 await ctx.channel.send("I cannot find the sprite of the pokemon")
         except Exception as e:
             await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+
+    @commands.command(name = 'coverage', help = 'Shows the coverage for inputted types')
+    async def coverage(self, ctx, *args):
+        args = (" ".join(args)).split(",")
+        print(f"Requesting coverage for {args}")
+        supereff = set()
+        neutral = set()
+        resisted = set()
+        immune = set()
+        for arg in args:
+            arg = self.name_convert(arg)
+            if arg not in self.typemap.keys():
+                await ctx.channel.send(f"Type {arg} could not be found in the database")
+                return 
+            arg = self.typemap[arg]
+            for type in self.types:
+                if self.typechart[self.name_convert(type)]["damageTaken"][arg]==2:
+                    supereff.add(type)
+                    neutral.discard(type)
+                    resisted.discard(type)
+                    immune.discard(type)
+                elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==1 and type not in supereff:
+                    neutral.add(type)
+                    resisted.discard(type)
+                    immune.discard(type)
+                elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==0.5 and type not in supereff and type not in neutral:
+                    resisted.add(type)
+                    immune.discard(type)
+                elif self.typechart[self.name_convert(type)]["damageTaken"][arg]==0.5 and type not in supereff and type not in neutral and type not in resisted:
+                    immune.add(type)
+        embed = discord.Embed(title = ", ".join(args))
+        if len(supereff)!=0:
+            embed.add_field(name = "Super Effective: ", value = ", ".join(supereff), inline = False)
+        if len(neutral)!=0:
+            embed.add_field(name = "Neutral: ", value = ", ".join(neutral), inline = False)
+        if len(resisted)!=0:
+            embed.add_field(name = "Not Very Effective: ", value = ", ".join(resisted), inline = False)
+        if len(immune)!=0:
+            embed.add_field(name = "Immune: ", value = ", ".join(immune), inline = False)
+        await ctx.channel.send(embed=embed)
+                
 
 async def setup(bot):
     await bot.add_cog(PokeInfo(bot))
