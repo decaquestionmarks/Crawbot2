@@ -104,6 +104,14 @@ class PokeInfo(commands.Cog):
         self.typemap = {}
         for type in self.types:
             self.typemap[type.lower()] = type
+        self.tiers = set()
+        for key in self.pokemon.keys():
+            try:
+                self.tiers.add(self.pokemon[key]["natDexTier"])
+            except:
+                print(key)
+                self.pokemon[key]["natDexTier"] = "Illegal"
+        print("Tiers", self.tiers)
         print("PokeInfo Cog has been set up")
 
     @commands.command(name='awake', help = "determine if PokeInfo populated its knowledge base.")
@@ -115,12 +123,27 @@ class PokeInfo(commands.Cog):
         return arg.replace("-", "").replace(" ", "").lower()
 
     def learnrec(self, mon: str, move: str, data: dict)->bool:
-        if "prevo" not in data[mon].keys() or self.name_convert(data[mon]["prevo"]) not in data.keys():
-            # print("checking only", mon)
-            return move in data[mon]["learnset"]
-        else:
+        ##### Do form check for certain forms
+        if "learnset" not in self.pokemon[mon].keys() and "baseSpecies" in self.pokemon[mon].keys():
+            # print("checking only ", data[mon]["baseSpecies"])
+            return self.learnrec(self.name_convert(self.pokemon[mon]["baseSpecies"]),move, data)
+        elif "prevo" in data[mon].keys() and self.name_convert(data[mon]["prevo"]) in data.keys():
             # print("checking", data[mon]["prevo"])
             return move in data[mon]["learnset"] or self.learnrec(self.name_convert(data[mon]["prevo"]),move,data)
+        elif "learnset" in self.pokemon[mon].keys() and "baseSpecies" in self.pokemon[mon].keys() and len(self.pokemon[mon]["learnset"])<=5:
+            # print("checking", data[mon]["baseSpecies"])
+            return move in data[mon]["learnset"] or self.learnrec(self.name_convert(self.pokemon[mon]["baseSpecies"]),move, data)
+        elif "learnset" not in self.pokemon[mon].keys() and "baseSpecies" not in self.pokemon[mon].keys() and "prevo" not in data[mon].keys():
+            return False
+        else:
+            # print("checking only", mon)
+            return move in data[mon]["learnset"]
+
+    def _typemod(self, types: list[str], atk:str):
+        ret = 1
+        for type in types:
+            type = self.name_convert(type)
+            ret *= self.typechart[self.name_convert(atk)]["damageTaken"][type]
 
     @commands.command(name='dt', help='Shows info about a Pokemon, Move, or Ability')
     async def data(self, ctx, *args):
@@ -194,16 +217,16 @@ class PokeInfo(commands.Cog):
                         if self.oldmons[arg]["baseStats"][key]!=self.pokemon[arg]["baseStats"][key]:
                             statchanges.append(f"{key}: {self.oldmons[arg]["baseStats"][key]} -> {self.pokemon[arg]["baseStats"][key]}")
                     embed.add_field(name = "Stats", value = "\n".join(statchanges), inline=False)
-                formarg = arg
-                if "learnset" not in self.pokemon[arg].keys():
-                    formarg = self.name_convert(self.pokemon[arg]["baseSpecies"])
+                # formarg = arg
+                # if "learnset" not in self.pokemon[arg].keys():
+                #     formarg = self.name_convert(self.pokemon[arg]["baseSpecies"])
                 gained = []
-                for key in self.pokemon[formarg]["learnset"]:
-                    if not self.learnrec(formarg, key, self.oldmons):
+                for key in self.moves.keys():
+                    if not self.learnrec(arg, key, self.oldmons) and self.learnrec(arg, key, self.pokemon):
                         gained.append(self.moves[key]["name"])
                 lost = []
-                for key in self.oldmons[formarg]["learnset"]:
-                    if not self.learnrec(formarg, key, self.pokemon):
+                for key in self.moves.keys():
+                    if not self.learnrec(arg, key, self.pokemon) and self.learnrec(arg, key, self.oldmons) :
                         lost.append(self.moves[key]["name"])
                 if gained or lost:
                     v = ""
@@ -229,7 +252,7 @@ class PokeInfo(commands.Cog):
             mon = self.name_convert(args[0])
             move = self.name_convert(args[1])
             print(f"{ctx.author} Requesting whether {mon} can learn {move}")
-            if mon in self.pokemon.keys() and "learnset" in self.pokemon[mon].keys():
+            if mon in self.pokemon.keys():
                 if move in self.moves.keys():
                     if self.learnrec(mon, move, self.pokemon):
                         await ctx.channel.send(f"{self.moves[move]["name"]} is learnable by {self.pokemon[mon]["name"]}")
@@ -280,7 +303,7 @@ class PokeInfo(commands.Cog):
 
     @commands.command(name='sprite', help='Shows a sprite')
     async def sprite(self, ctx, arg):
-        print(f"{ctx.author} Requesting Sprite for {args}")
+        print(f"{ctx.author} Requesting Sprite for {arg}")
         arg = self.name_convert(arg)
         try:
             if arg in self.pokemon.keys() and arg not in self.oldmons.keys():
@@ -335,6 +358,63 @@ class PokeInfo(commands.Cog):
         except Exception as e:
             await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")  
 
+    def dfilter(self, args: list, mons: set) -> set:
+        print(f"filtering for {args}")
+        for arg in args:
+            if "|" in arg:
+                orargs = arg.split("|")
+                orset = set()
+                for orarg in orargs:
+                    orset|=self.dfilter([orarg],mons.copy())
+                mons = orset
+            elif arg.strip().startswith("!"):
+                mons -=self.dfilter([arg.strip()[1:]], mons.copy())
+            elif self.name_convert(arg.replace("type-","")) in self.typemap.keys():
+                arg = self.name_convert(arg.replace("type-",""))
+                newset = set()
+                for mon in mons:
+                    if self.typemap[arg] in self.pokemon[mon]["types"]:
+                        newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg.replace("move-","")) in self.moves.keys():
+                arg = self.name_convert(arg.replace("move-",""))
+                newset = set()
+                for mon in mons:
+                    if "learnset" in self.pokemon[mon].keys() or "baseSpecies" in self.pokemon[mon].keys():
+                        ##### Change to be Learnrec
+                        if self.learnrec(mon, arg, self.pokemon):
+                            newset.add(mon)
+                mons = newset
+            else:
+                print(f"{arg} could not be found")
+                return set()
+        return mons
+    
+    @commands.command(name = 'ds', help = 'Search the dex for mons that match')
+    async def dsearch(self, ctx, *args):
+        args = (" ".join(args)).split(",")
+        print(f"{ctx.author} Requesting dex search for {args}")
+        # try:
+        ret = self.dfilter(args, set(self.pokemon.keys()))
+        print(f"got {ret}")
+        if len(ret) != len(self.pokemon.keys()) and len(ret) != 0:
+            ret = ", ".join([self.pokemon[key]["name"]for key in ret])
+            while len(ret)>2000:
+                await ctx.channel.send(", ".join(ret.split(", ")[:100]))
+                ret = ", ".join(ret.split(", ")[100:])
+            await ctx.channel.send(ret)
+        elif len(ret) == 0:
+            await ctx.channel.send("Search resulted in no Pokemon.")
+        else:
+            await ctx.channel.send("Search resulted in all Pokemon.")
+        # except Exception as e:
+        #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+
+    @commands.command(name = 'DeMorgan', help = "display De Morgan's laws")
+    async def demorgan(self, ctx):
+        await ctx.channel.send("https://en.wikipedia.org/wiki/De_Morgan%27s_laws")
+
+    
 async def setup(bot):
     await bot.add_cog(PokeInfo(bot))
 
