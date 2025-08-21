@@ -118,6 +118,12 @@ class PokeInfo(commands.Cog):
         for tier in self.tiers:
             self.tiermap[tier.lower()] = tier
         print("Tiers", self.tiers, self.tiermap)
+        self.tagmap = {}
+        for key in self.pokemon.keys():
+            if "tags" in self.pokemon[key].keys():
+                if self.pokemon[key]["tags"][0] not in self.tagmap.keys():
+                    self.tagmap[self.name_convert(self.pokemon[key]["tags"][0])] = self.pokemon[key]["tags"][0]
+        print("Poketags", self.tagmap)
         print("PokeInfo Cog has been set up")
 
     @commands.command(name='awake', help = "determine if PokeInfo populated its knowledge base.")
@@ -447,6 +453,20 @@ class PokeInfo(commands.Cog):
                     if "natDexTier" in self.pokemon[mon].keys():
                         if arg == self.pokemon[mon]["natDexTier"]:
                             newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg.replace("tag-","")) in self.tagmap:
+                arg = self.name_convert(arg.replace("tag-",""))
+                newset = set()
+                for mon in mons:
+                    if "tags" in self.pokemon[mon].keys():
+                        if self.tagmap[arg] in self.pokemon[mon]["tags"]:
+                            newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg) == "new":
+                newset = set()
+                for mon in mons:
+                    if mon not in self.oldmons.keys():
+                        newset.add(mon)
                 mons = newset
             else:
                 print(f"{arg} could not be found")
