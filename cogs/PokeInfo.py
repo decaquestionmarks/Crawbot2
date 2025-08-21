@@ -99,19 +99,25 @@ class PokeInfo(commands.Cog):
         for key in self.pokemon.keys():
             for type in self.pokemon[key]["eggGroups"]:
                 self.eggGroups.add(type)
-        print("eggGroups", self.eggGroups)
+        self.eggmap = {}
+        for egg in self.eggGroups:
+            self.eggmap[self.name_convert(egg)] = egg
+        print("eggGroups", self.eggGroups,self.eggmap)
         self.evotypes = {"lc", "nfe", "fe"}
-        self.typemap = {}
-        for type in self.types:
-            self.typemap[type.lower()] = type
+        # self.typemap = {}
+        # for type in self.types:
+        #     self.typemap[type.lower()] = type
         self.tiers = set()
         for key in self.pokemon.keys():
             try:
                 self.tiers.add(self.pokemon[key]["natDexTier"])
             except:
-                print(key)
+                # print(key)
                 self.pokemon[key]["natDexTier"] = "Illegal"
-        print("Tiers", self.tiers)
+        self.tiermap = {}
+        for tier in self.tiers:
+            self.tiermap[tier.lower()] = tier
+        print("Tiers", self.tiers, self.tiermap)
         print("PokeInfo Cog has been set up")
 
     @commands.command(name='awake', help = "determine if PokeInfo populated its knowledge base.")
@@ -120,7 +126,7 @@ class PokeInfo(commands.Cog):
         await ctx.send('PokeInfo was successfully loaded')
     
     def name_convert(self, arg:str)->str:
-        return arg.replace("-", "").replace(" ", "").lower()
+        return arg.replace("-", "").replace(".", "").replace(" ", "").lower()
 
     def learnrec(self, mon: str, move: str, data: dict)->bool:
         ##### Do form check for certain forms
@@ -134,6 +140,7 @@ class PokeInfo(commands.Cog):
             # print("checking", data[mon]["baseSpecies"])
             return move in data[mon]["learnset"] or self.learnrec(self.name_convert(self.pokemon[mon]["baseSpecies"]),move, data)
         elif "learnset" not in self.pokemon[mon].keys() and "baseSpecies" not in self.pokemon[mon].keys() and "prevo" not in data[mon].keys():
+            # print(f"{mon} has no data on moves")
             return False
         else:
             # print("checking only", mon)
@@ -162,6 +169,11 @@ class PokeInfo(commands.Cog):
                 embed.add_field(name = "Stats", value = "/".join([str(value) for value in self.pokemon[arg]["baseStats"].values()]), inline = True)
                 # print(list(self.pokemon[arg]["baseStats"].values()))
                 embed.add_field(name = "Total", value=sum(list(self.pokemon[arg]["baseStats"].values())), inline = True)
+                moves = []
+                for key in self.moves.keys():
+                    if self.learnrec(arg, key, self.pokemon):
+                        moves.append(key)
+                embed.add_field(name = "Moves", value=len(moves), inline = False)
             elif arg in self.moves.keys():
                 print(self.moves[arg])
                 embed = discord.Embed(title = self.moves[arg]["name"])
@@ -326,10 +338,10 @@ class PokeInfo(commands.Cog):
             immune = set()
             for arg in args:
                 arg = self.name_convert(arg)
-                if arg not in self.typemap.keys():
+                if arg.capitalize() not in self.types:
                     await ctx.channel.send(f"Type {arg} could not be found in the database")
                     return 
-                arg = self.typemap[arg]
+                arg = arg.capitalize()
                 for type in self.types:
                     if self.typechart[self.name_convert(type)]["damageTaken"][arg]==2:
                         supereff.add(type)
@@ -369,11 +381,11 @@ class PokeInfo(commands.Cog):
                 mons = orset
             elif arg.strip().startswith("!"):
                 mons -=self.dfilter([arg.strip()[1:]], mons.copy())
-            elif self.name_convert(arg.replace("type-","")) in self.typemap.keys():
+            elif self.name_convert(arg.replace("type-","")).capitalize() in self.types:
                 arg = self.name_convert(arg.replace("type-",""))
                 newset = set()
                 for mon in mons:
-                    if self.typemap[arg] in self.pokemon[mon]["types"]:
+                    if arg.capitalize() in self.pokemon[mon]["types"]:
                         newset.add(mon)
                 mons = newset
             elif self.name_convert(arg.replace("move-","")) in self.moves.keys():
@@ -381,13 +393,64 @@ class PokeInfo(commands.Cog):
                 newset = set()
                 for mon in mons:
                     if "learnset" in self.pokemon[mon].keys() or "baseSpecies" in self.pokemon[mon].keys():
-                        ##### Change to be Learnrec
                         if self.learnrec(mon, arg, self.pokemon):
+                            newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg.replace("ability-", "")) in self.abilities.keys():
+                arg = self.name_convert(arg.replace("ability-",""))
+                arg = self.abilities[arg]["name"]
+                newset = set()
+                for mon in mons:
+                    if "abilities" in self.pokemon[mon].keys():
+                        if arg in self.pokemon[mon]["abilities"].values():
+                            newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg.replace("color-", "")).capitalize() in self.colors:
+                arg = self.name_convert(arg.replace("color-", "")).capitalize()
+                # print(arg)
+                newset = set()
+                for mon in mons:
+                    if "color" in self.pokemon[mon].keys():
+                        if arg == self.pokemon[mon]["color"]:
+                            newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg.replace("egg-", "")) in self.eggmap.keys():
+                arg = self.eggmap[self.name_convert(arg.replace("egg-", ""))]
+                # print(arg)
+                newset = set()
+                for mon in mons:
+                    if "eggGroups" in self.pokemon[mon].keys():
+                        if arg in self.pokemon[mon]["eggGroups"]:
+                            newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg) in self.evotypes:
+                arg = self.name_convert(arg)
+                newset = set()
+                if arg == "fe":
+                    for mon in mons:
+                        if "evos" not in self.pokemon[mon].keys():
+                            newset.add(mon)
+                if arg == "nfe":
+                    for mon in mons:
+                        if "evos" in self.pokemon[mon].keys() and "prevo" in self.pokemon[mon].keys():
+                            newset.add(mon)
+                if arg == "lc":
+                    for mon in mons:
+                        if "evos" in self.pokemon[mon].keys() and "prevo" not in self.pokemon[mon].keys():
+                            newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg.replace("tier-","")) in self.tiermap:
+                arg = self.tiermap[self.name_convert(arg.replace("tier-", ""))]
+                # print(arg)
+                newset = set()
+                for mon in mons:
+                    if "natDexTier" in self.pokemon[mon].keys():
+                        if arg == self.pokemon[mon]["natDexTier"]:
                             newset.add(mon)
                 mons = newset
             else:
                 print(f"{arg} could not be found")
-                return set()
+                return arg
         return mons
     
     @commands.command(name = 'ds', help = 'Search the dex for mons that match')
@@ -397,8 +460,11 @@ class PokeInfo(commands.Cog):
         # try:
         ret = self.dfilter(args, set(self.pokemon.keys()))
         print(f"got {ret}")
-        if len(ret) != len(self.pokemon.keys()) and len(ret) != 0:
-            ret = ", ".join([self.pokemon[key]["name"]for key in ret])
+        if type(ret) == str:
+            await ctx.channel.send(f"argument {ret} could not be found")
+        elif len(ret) != len(self.pokemon.keys()) and len(ret) != 0:
+            ret = sorted([self.pokemon[key]["name"]for key in ret])
+            ret = ", ".join(ret)
             while len(ret)>2000:
                 await ctx.channel.send(", ".join(ret.split(", ")[:100]))
                 ret = ", ".join(ret.split(", ")[100:])
