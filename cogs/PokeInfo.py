@@ -155,8 +155,10 @@ class PokeInfo(commands.Cog):
     def _typemod(self, types: list[str], atk:str):
         ret = 1
         for type in types:
-            type = self.name_convert(type)
-            ret *= self.typechart[self.name_convert(atk)]["damageTaken"][type]
+            if type in self.types:
+                type = self.name_convert(type)
+                ret *= self.typechart[self.name_convert(type)]["damageTaken"][atk]
+        return ret
 
     @commands.command(name='dt', help='Shows info about a Pokemon, Move, or Ability')
     async def data(self, ctx, *args):
@@ -379,6 +381,7 @@ class PokeInfo(commands.Cog):
     def dfilter(self, args: list, mons: set) -> set:
         print(f"filtering for {args}")
         for arg in args:
+            ### Special Modifier Args
             if "|" in arg:
                 orargs = arg.split("|")
                 orset = set()
@@ -387,6 +390,7 @@ class PokeInfo(commands.Cog):
                 mons = orset
             elif arg.strip().startswith("!"):
                 mons -=self.dfilter([arg.strip()[1:]], mons.copy())
+            ### Keyword Args
             elif self.name_convert(arg.replace("type-","")).capitalize() in self.types:
                 arg = self.name_convert(arg.replace("type-",""))
                 newset = set()
@@ -468,6 +472,28 @@ class PokeInfo(commands.Cog):
                     if mon not in self.oldmons.keys():
                         newset.add(mon)
                 mons = newset
+            ### Type Args
+            elif self.name_convert(arg).startswith("weak"):
+                arg = self.name_convert(arg).replace("weak","")
+                if arg.capitalize() not in self.types:
+                    print(f"{arg} could not be found")
+                    return arg
+                newset = set()
+                for mon in mons:
+                    if self._typemod(self.pokemon[mon]["types"],arg.capitalize())>1:
+                        newset.add(mon)
+                mons = newset
+            elif self.name_convert(arg).startswith("resists"):
+                arg = self.name_convert(arg).replace("resists","")
+                if arg.capitalize() not in self.types:
+                    print(f"{arg} could not be found")
+                    return arg
+                newset = set()
+                for mon in mons:
+                    if self._typemod(self.pokemon[mon]["types"],arg.capitalize())<1:
+                        newset.add(mon)
+                mons = newset
+            ### Comparison Args
             else:
                 print(f"{arg} could not be found")
                 return arg
