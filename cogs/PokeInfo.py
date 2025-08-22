@@ -31,6 +31,7 @@ class PokeInfo(commands.Cog):
         self.moves = {}
         with open(dawnbasedata+"moves.ts", "r+") as f:
             builddict(f,self.moves)
+        self.oldmoves = copy.deepcopy(self.moves)
         # print(self.moves)
         with open(dawndata+"moves.ts", "r+") as f:
             builddict(f,self.moves)
@@ -583,7 +584,142 @@ class PokeInfo(commands.Cog):
     async def demorgan(self, ctx):
         await ctx.channel.send("https://en.wikipedia.org/wiki/De_Morgan%27s_laws")
 
-    
+    def mfilter(self, args: list, moves: set) -> set:
+        print(f"filtering for {args}")
+        for arg in args:
+            ### Special Modifier Args
+            if "|" in arg:
+                orargs = arg.split("|")
+                orset = set()
+                for orarg in orargs:
+                    orset|=self.mfilter([orarg],mons.copy())
+                moves = orset
+            elif arg.strip().startswith("!"):
+                moves -=self.mfilter([arg.strip()[1:]], moves.copy())
+            ### Keyword Args
+            elif self.name_convert(arg.replace("type-","")).capitalize() in self.types:
+                arg = self.name_convert(arg.replace("type-",""))
+                newset = set()
+                for move in moves:
+                    if arg.capitalize() == self.moves[move]["type"]:
+                        newset.add(move)
+                moves = newset
+            elif self.name_convert(arg.replace("pokemon-","")) in self.pokemon.keys():
+                arg = self.name_convert(arg.replace("pokemon-",""))
+                newset = set()
+                for move in moves:
+                    if "learnset" in self.pokemon[arg].keys() or "baseSpecies" in self.pokemon[arg].keys():
+                        if self.learnrec(arg, move, self.pokemon):
+                            newset.add(move)
+                moves = newset
+            elif self.name_convert(arg) in self.categories:
+                arg = self.name_convert(arg)
+                newset = set()
+                for move in moves:
+                    if arg.capitalize() == self.moves[move]["category"]:
+                        newset.add(move)
+                moves = newset
+            elif self.name_convert(arg.replace("flag-","")) in self.flags:
+                arg = self.name_convert(arg.replace("flag-",""))
+                newset = set()
+                for move in moves:
+                    if "flags" in self.moves[move].keys():
+                        if arg in self.moves[move]["flags"]:
+                            newset.add(move)
+                moves = newset
+            elif self.name_convert(arg) == "new":
+                newset = set()
+                for move in moves:
+                    if move not in self.oldmoves.keys():
+                        newset.add(move)
+                moves = newset
+            # ### Type Args
+            # elif self.name_convert(arg).startswith("weak"):
+            #     arg = self.name_convert(arg).replace("weak","")
+            #     if arg.capitalize() not in self.types:
+            #         print(f"{arg} could not be found")
+            #         return arg
+            #     newset = set()
+            #     for mon in mons:
+            #         if self._typemod(self.pokemon[mon]["types"],arg.capitalize())>1:
+            #             newset.add(mon)
+            #     mons = newset
+            # elif self.name_convert(arg).startswith("resists"):
+            #     arg = self.name_convert(arg).replace("resists","")
+            #     if arg.capitalize() not in self.types:
+            #         print(f"{arg} could not be found")
+            #         return arg
+            #     newset = set()
+            #     for mon in mons:
+            #         if self._typemod(self.pokemon[mon]["types"],arg.capitalize())<1:
+            #             newset.add(mon)
+            #     mons = newset
+            # ### Comparison Args
+            # elif re.search("[<=>]+",arg):
+            #     m = re.search("[<=>]+",arg)
+            #     print(f"{m.group(0)} detected")
+            #     valid = ["<","<=",">",">=","="]
+            #     if m.group(0) in valid:
+            #         comppair = re.split("[<=>]+",arg,maxsplit=1)
+            #         comppair[0] = self.name_convert(comppair[0])
+            #         try:
+            #             comppair[1] = float(comppair[1])
+            #         except ValueError:
+            #             return comppair[1]
+            #         print(comppair)
+            #         newset = set()
+            #         for mon in mons:
+            #             if comppair[0] in self.stats:
+            #                 if self.compare(self.pokemon[mon]["baseStats"][comppair[0]],m.group(0),comppair[1]):
+            #                     newset.add(mon)
+            #             if comppair[0] == "bst":
+            #                 if self.compare(sum(self.pokemon[mon]["baseStats"].values()),m.group(0),comppair[1]):
+            #                     newset.add(mon)
+            #             if comppair[0] == "height":
+            #                 if self.compare(self.pokemon[mon]["heightm"],m.group(0),comppair[1]):
+            #                     newset.add(mon)
+            #             if comppair[0] == "weight":
+            #                 if self.compare(self.pokemon[mon]["weightkg"],m.group(0),comppair[1]):
+            #                     newset.add(mon)
+            #             if comppair[0] == "moves":
+            #                 # O(nm) :(
+            #                 moves = 0
+            #                 for key in self.moves.keys():
+            #                     if self.learnrec(mon, key, self.pokemon):
+            #                         moves+=1
+            #                 if self.compare(moves,m.group(0),comppair[1]):
+            #                     newset.add(mon)
+            #         mons = newset
+            #     else: 
+            #         return m.group(0)
+            else:
+                print(f"{arg} could not be found")
+                return arg
+        return moves
+
+    @commands.command(name = 'ms', help = 'Search the dex for moves that match')
+    async def msearch(self, ctx, *args):
+        args = (" ".join(args)).split(",")
+        print(f"{ctx.author} Requesting dex search for {args}")
+        # try:
+        ret = self.mfilter(args, set(self.moves.keys()))
+        print(f"got {ret}")
+        if type(ret) == str:
+            await ctx.channel.send(f"argument {ret} could not be found")
+        elif len(ret) != len(self.moves.keys()) and len(ret) != 0:
+            ret = sorted([self.moves[key]["name"]for key in ret])
+            ret = ", ".join(ret)
+            while len(ret)>2000:
+                await ctx.channel.send(", ".join(ret.split(", ")[:100]))
+                ret = ", ".join(ret.split(", ")[100:])
+            await ctx.channel.send(ret)
+        elif len(ret) == 0:
+            await ctx.channel.send("Search resulted in no Moves.")
+        else:
+            await ctx.channel.send("Search resulted in all Moves.")
+        # except Exception as e:
+        #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+
 async def setup(bot):
     await bot.add_cog(PokeInfo(bot))
 
