@@ -1,3 +1,4 @@
+import re
 import discord
 import os
 from discord.ext import commands
@@ -136,19 +137,22 @@ class PokeInfo(commands.Cog):
 
     def learnrec(self, mon: str, move: str, data: dict)->bool:
         ##### Do form check for certain forms
-        if "learnset" not in self.pokemon[mon].keys() and "baseSpecies" in self.pokemon[mon].keys():
+        if "learnset" not in data[mon].keys() and "baseSpecies" in data[mon].keys():
             # print("checking only ", data[mon]["baseSpecies"])
-            return self.learnrec(self.name_convert(self.pokemon[mon]["baseSpecies"]),move, data)
-        elif "prevo" in data[mon].keys() and self.name_convert(data[mon]["prevo"]) in data.keys():
+            return self.learnrec(self.name_convert(data[mon]["baseSpecies"]),move, data)
+        elif "learnset" in data[mon].keys() and "prevo" in data[mon].keys() and self.name_convert(data[mon]["prevo"]) in data.keys():
             # print("checking", data[mon]["prevo"])
             return move in data[mon]["learnset"] or self.learnrec(self.name_convert(data[mon]["prevo"]),move,data)
-        elif "learnset" in self.pokemon[mon].keys() and "baseSpecies" in self.pokemon[mon].keys() and len(self.pokemon[mon]["learnset"])<=5:
+        elif "learnset" in data[mon].keys() and "baseSpecies" in data[mon].keys() and len(data[mon]["learnset"])<=5:
             # print("checking", data[mon]["baseSpecies"])
-            return move in data[mon]["learnset"] or self.learnrec(self.name_convert(self.pokemon[mon]["baseSpecies"]),move, data)
-        elif "learnset" not in self.pokemon[mon].keys() and "baseSpecies" not in self.pokemon[mon].keys() and "prevo" not in data[mon].keys():
+            return move in data[mon]["learnset"] or self.learnrec(self.name_convert(data[mon]["baseSpecies"]),move, data)
+        elif "learnset" not in data[mon].keys() and "baseSpecies" not in data[mon].keys() and "prevo" not in data[mon].keys():
             # print(f"{mon} has no data on moves")
             return False
         else:
+            if "learnset" not in data[mon].keys():
+                # print(data[mon])
+                return False
             # print("checking only", mon)
             return move in data[mon]["learnset"]
 
@@ -378,6 +382,22 @@ class PokeInfo(commands.Cog):
         except Exception as e:
             await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")  
 
+    def compare(self, num1: int|float, operation: str, num2: int|float)-> bool:
+        # print(f"comparing {num1} {operation} {num2}")
+        match operation:
+            case "<":
+                return num1<num2
+            case "<=":
+                return num1<=num2
+            case ">":
+                return num1>num2
+            case ">=":
+                return num1>=num2
+            case "=":
+                return num1==num2
+            case _:
+                return False
+
     def dfilter(self, args: list, mons: set) -> set:
         print(f"filtering for {args}")
         for arg in args:
@@ -494,6 +514,43 @@ class PokeInfo(commands.Cog):
                         newset.add(mon)
                 mons = newset
             ### Comparison Args
+            elif re.search("[<=>]+",arg):
+                m = re.search("[<=>]+",arg)
+                print(f"{m.group(0)} detected")
+                valid = ["<","<=",">",">=","="]
+                if m.group(0) in valid:
+                    comppair = re.split("[<=>]+",arg,maxsplit=1)
+                    comppair[0] = self.name_convert(comppair[0])
+                    try:
+                        comppair[1] = float(comppair[1])
+                    except ValueError:
+                        return comppair[1]
+                    print(comppair)
+                    newset = set()
+                    for mon in mons:
+                        if comppair[0] in self.stats:
+                            if self.compare(self.pokemon[mon]["baseStats"][comppair[0]],m.group(0),comppair[1]):
+                                newset.add(mon)
+                        if comppair[0] == "bst":
+                            if self.compare(sum(self.pokemon[mon]["baseStats"].values()),m.group(0),comppair[1]):
+                                newset.add(mon)
+                        if comppair[0] == "height":
+                            if self.compare(self.pokemon[mon]["heightm"],m.group(0),comppair[1]):
+                                newset.add(mon)
+                        if comppair[0] == "weight":
+                            if self.compare(self.pokemon[mon]["weightkg"],m.group(0),comppair[1]):
+                                newset.add(mon)
+                        if comppair[0] == "moves":
+                            # O(nm) :(
+                            moves = 0
+                            for key in self.moves.keys():
+                                if self.learnrec(mon, key, self.pokemon):
+                                    moves+=1
+                            if self.compare(moves,m.group(0),comppair[1]):
+                                newset.add(mon)
+                    mons = newset
+                else: 
+                    return m.group(0)
             else:
                 print(f"{arg} could not be found")
                 return arg
