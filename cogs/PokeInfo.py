@@ -385,6 +385,8 @@ class PokeInfo(commands.Cog):
 
     def compare(self, num1: int|float, operation: str, num2: int|float)-> bool:
         # print(f"comparing {num1} {operation} {num2}")
+        if num1 is True:
+            return {"<":False,"<=":False,">":True,">=":True,"=":num2==101}[operation]
         match operation:
             case "<":
                 return num1<num2
@@ -633,65 +635,45 @@ class PokeInfo(commands.Cog):
                     if move not in self.oldmoves.keys():
                         newset.add(move)
                 moves = newset
-            # ### Type Args
-            # elif self.name_convert(arg).startswith("weak"):
-            #     arg = self.name_convert(arg).replace("weak","")
-            #     if arg.capitalize() not in self.types:
-            #         print(f"{arg} could not be found")
-            #         return arg
-            #     newset = set()
-            #     for mon in mons:
-            #         if self._typemod(self.pokemon[mon]["types"],arg.capitalize())>1:
-            #             newset.add(mon)
-            #     mons = newset
-            # elif self.name_convert(arg).startswith("resists"):
-            #     arg = self.name_convert(arg).replace("resists","")
-            #     if arg.capitalize() not in self.types:
-            #         print(f"{arg} could not be found")
-            #         return arg
-            #     newset = set()
-            #     for mon in mons:
-            #         if self._typemod(self.pokemon[mon]["types"],arg.capitalize())<1:
-            #             newset.add(mon)
-            #     mons = newset
             # ### Comparison Args
-            # elif re.search("[<=>]+",arg):
-            #     m = re.search("[<=>]+",arg)
-            #     print(f"{m.group(0)} detected")
-            #     valid = ["<","<=",">",">=","="]
-            #     if m.group(0) in valid:
-            #         comppair = re.split("[<=>]+",arg,maxsplit=1)
-            #         comppair[0] = self.name_convert(comppair[0])
-            #         try:
-            #             comppair[1] = float(comppair[1])
-            #         except ValueError:
-            #             return comppair[1]
-            #         print(comppair)
-            #         newset = set()
-            #         for mon in mons:
-            #             if comppair[0] in self.stats:
-            #                 if self.compare(self.pokemon[mon]["baseStats"][comppair[0]],m.group(0),comppair[1]):
-            #                     newset.add(mon)
-            #             if comppair[0] == "bst":
-            #                 if self.compare(sum(self.pokemon[mon]["baseStats"].values()),m.group(0),comppair[1]):
-            #                     newset.add(mon)
-            #             if comppair[0] == "height":
-            #                 if self.compare(self.pokemon[mon]["heightm"],m.group(0),comppair[1]):
-            #                     newset.add(mon)
-            #             if comppair[0] == "weight":
-            #                 if self.compare(self.pokemon[mon]["weightkg"],m.group(0),comppair[1]):
-            #                     newset.add(mon)
-            #             if comppair[0] == "moves":
-            #                 # O(nm) :(
-            #                 moves = 0
-            #                 for key in self.moves.keys():
-            #                     if self.learnrec(mon, key, self.pokemon):
-            #                         moves+=1
-            #                 if self.compare(moves,m.group(0),comppair[1]):
-            #                     newset.add(mon)
-            #         mons = newset
-            #     else: 
-            #         return m.group(0)
+            elif re.search("[<=>]+",arg):
+                m = re.search("[<=>]+",arg)
+                print(f"{m.group(0)} detected")
+                valid = ["<","<=",">",">=","="]
+                if m.group(0) in valid:
+                    comppair = re.split("[<=>]+",arg,maxsplit=1)
+                    comppair[0] = self.name_convert(comppair[0])
+                    try:
+                        comppair[1] = float(comppair[1])
+                    except ValueError:
+                        return comppair[1]
+                    print(comppair)
+                    newset = set()
+                    for move in moves:
+                        if comppair[0] == "bp":
+                            if self.compare(self.moves[move]["basePower"],m.group(0),comppair[1]):
+                                newset.add(move)
+                        if comppair[0] == "acc":
+                            if self.compare(self.moves[move]["accuracy"],m.group(0),comppair[1]):
+                                newset.add(move)
+                        if comppair[0] == "pp":
+                            if self.compare(self.moves[move]["pp"],m.group(0),comppair[1]):
+                                newset.add(move)
+                        if comppair[0] == "prio":
+                            if self.compare(self.moves[move]["priority"],m.group(0),comppair[1]):
+                                newset.add(move)
+                        if comppair[0] == "users":
+                            # O(nm) :(
+                            users = 0
+                            for mon in self.pokemon.keys():
+                                if self.learnrec(mon, move, self.pokemon):
+                                    users+=1
+                            if self.compare(users,m.group(0),int(comppair[1])):
+                                print(move, users,m.group(0), comppair[1], self.compare(users,m.group(0),comppair[1]))
+                                newset.add(move)
+                    moves = newset
+                else: 
+                    return m.group(0)
             else:
                 print(f"{arg} could not be found")
                 return arg
