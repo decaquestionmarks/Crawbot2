@@ -669,7 +669,7 @@ class PokeInfo(commands.Cog):
                                 if self.learnrec(mon, move, self.pokemon):
                                     users+=1
                             if self.compare(users,m.group(0),int(comppair[1])):
-                                print(move, users,m.group(0), comppair[1], self.compare(users,m.group(0),comppair[1]))
+                                # print(move, users,m.group(0), comppair[1], self.compare(users,m.group(0),comppair[1]))
                                 newset.add(move)
                     moves = newset
                 else: 
