@@ -64,6 +64,10 @@ class PokeInfo(commands.Cog):
         for key in self.pokemon.keys():
             if "num" not in self.pokemon[key]:
                 dellist.append(key)   
+            elif -1000<self.pokemon[key]["num"]<0:
+                dellist.append(key)
+            elif "-Gmax" in self.pokemon[key]["name"] or "Pokestar" in self.pokemon[key]["name"]:
+                dellist.append(key)
         for key in dellist:
             del self.pokemon[key]
         #Typechart specific cleaning
@@ -114,7 +118,7 @@ class PokeInfo(commands.Cog):
             try:
                 self.tiers.add(self.pokemon[key]["natDexTier"])
             except:
-                # print(key)
+                print(key)
                 self.pokemon[key]["natDexTier"] = "Illegal"
         self.tiermap = {}
         for tier in self.tiers:
@@ -173,7 +177,7 @@ class PokeInfo(commands.Cog):
             print(f"{ctx.author} Requesting data on {arg}")
             embed = discord.Embed()
             if arg in self.pokemon.keys():
-                # print(self.pokemon[arg])
+                print(self.pokemon[arg])
                 embed = discord.Embed(title = self.pokemon[arg]["name"])
                 embed.add_field(name = "Type", value = "/".join(self.pokemon[arg]["types"]), inline = True)
                 if "natDexTier" in self.pokemon[arg].keys():
@@ -182,11 +186,15 @@ class PokeInfo(commands.Cog):
                 embed.add_field(name = "Stats", value = "/".join([str(value) for value in self.pokemon[arg]["baseStats"].values()]), inline = True)
                 # print(list(self.pokemon[arg]["baseStats"].values()))
                 embed.add_field(name = "Total", value=sum(list(self.pokemon[arg]["baseStats"].values())), inline = True)
+                embed.add_field(name="\u200B", value = "\u200B", inline = True)
                 moves = []
                 for key in self.moves.keys():
                     if self.learnrec(arg, key, self.pokemon):
                         moves.append(key)
-                embed.add_field(name = "Moves", value=len(moves), inline = False)
+                embed.add_field(name = "Moves", value=len(moves), inline = True)
+                embed.add_field(name = "Height", value = self.pokemon[arg]["heightm"], inline = True)
+                embed.add_field(name = "Weight", value = self.pokemon[arg]["weightkg"], inline = True)
+                embed.add_field(name = "Creator", value = "TBA", inline = False)
             elif arg in self.moves.keys():
                 print(self.moves[arg])
                 embed = discord.Embed(title = self.moves[arg]["name"])
@@ -201,6 +209,10 @@ class PokeInfo(commands.Cog):
                 embed.add_field(name = "PP", value = int(int(self.moves[arg]["pp"])*(16/10)),inline = True)
                 embed.add_field(name = "Priority", value = int(self.moves[arg]["priority"]), inline = True)
                 embed.add_field(name = "flags", value = ", ".join(list(self.moves[arg]["flags"].keys())), inline= False)
+                if "contestType" in self.moves[arg]:
+                    embed.add_field(name = "Contest Type", value = self.moves[arg]["contestType"], inline= True)
+                else:
+                    embed.add_field(name = "Contest Type", value = "None", inline= True)
 
             elif arg in self.abilities.keys():
                 embed = discord.Embed(title = self.abilities[arg]["name"])
@@ -594,7 +606,7 @@ class PokeInfo(commands.Cog):
                 orargs = arg.split("|")
                 orset = set()
                 for orarg in orargs:
-                    orset|=self.mfilter([orarg],mons.copy())
+                    orset|=self.mfilter([orarg],moves.copy())
                 moves = orset
             elif arg.strip().startswith("!"):
                 moves -=self.mfilter([arg.strip()[1:]], moves.copy())
@@ -701,6 +713,29 @@ class PokeInfo(commands.Cog):
             await ctx.channel.send("Search resulted in all Moves.")
         # except Exception as e:
         #     await ctx.channel.send(f"An Error has occurred, {e.__class__.__name__}: {e}")
+
+    @commands.command(name = 'randpoke', help = 'Search the dex for pokemon that match and randomly select a number of them')
+    async def randpoke(self, ctx, *args):
+        args = (" ".join(args)).split(",")
+        num = args[0]
+        try:
+            num = int(num)
+        except ValueError:
+            await ctx.channel.send(f"{num} is not an integer")
+            return
+        args = args[1:]
+        print(f"{ctx.author} Requesting dex search for {args}")
+        # try:
+        ret = self.dfilter(args, set(self.pokemon.keys()))
+        print(f"got {ret}")
+        if type(ret) == str:
+            await ctx.channel.send(f"argument {ret} could not be found")
+        elif len(ret) != 0:
+            await ctx.channel.send(f"found {len(ret)} pokemon")
+            ret = sorted([self.pokemon[key]["name"]for key in ret])
+            await ctx.channel.send(", ".join(random.sample(ret, min(len(ret),num,24))))
+        elif len(ret) == 0:
+            await ctx.channel.send("Search resulted in no Pokemon.")
 
 async def setup(bot):
     await bot.add_cog(PokeInfo(bot))
