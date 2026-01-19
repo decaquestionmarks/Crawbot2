@@ -127,8 +127,12 @@ def builddict(file, target: dict) -> dict:
                 # print("skipped", f.tell())
                 pass
         t = determineType(token[:-1])
-        # print(token)
+        # print("Token", token)
+        # print("Target", target)
+        if target == "null":
+            target = {}
         # print("###"+str(type(t)))
+        # print("key", key, "")
         target[key] = (t(token[:-1].replace('"','').replace('}','').strip()))
         # print(target)
         # print(key,token)
